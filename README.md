@@ -2,7 +2,8 @@
 
 Envie um ou mais PDFs e faça perguntas em português. O app busca os trechos mais relevantes e o Gemini responde **citando o arquivo e a página** de onde tirou cada informação. Se a resposta não estiver nos documentos, ele diz que não encontrou, em vez de inventar.
 
-> 📸 _Coloque aqui um print ou GIF do app respondendo uma pergunta._
+<img width="1916" height="907" alt="image" src="https://github.com/user-attachments/assets/7ad598ba-bcfd-4d7b-91c0-dfbfa89a9f2b" />
+
 
 É a evolução do meu primeiro projeto de IA, o [talk_to_pdf_ai](https://github.com/LeonhardtBN/talk_to_pdf_ai), um notebook com GPT-3.5, agora com interface, várias melhorias e o plano gratuito do Gemini.
 
