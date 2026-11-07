@@ -72,3 +72,27 @@ def test_impressao_digital_ignora_ordem_e_detecta_mudanca():
     a, b = ("a.pdf", b"1"), ("b.pdf", b"2")
     assert impressao_digital([a, b]) == impressao_digital([b, a])
     assert impressao_digital([a]) != impressao_digital([("a.pdf", b"outro")])
+
+
+def test_busca_traz_o_trecho_mais_parecido_primeiro():
+    from langchain_core.documents import Document
+
+    from utils import IndiceFaiss
+
+    class EmbeddingsPorPalavra:
+        palavras = ["prazo", "preco", "multa"]
+
+        def _vetor(self, texto):
+            return [float(p in texto.lower()) + 0.01 for p in self.palavras]
+
+        def embed_documents(self, textos):
+            return [self._vetor(t) for t in textos]
+
+        def embed_query(self, texto):
+            return self._vetor(texto)
+
+    docs = [Document(page_content=t, metadata={"arquivo": "c.pdf", "pagina": i})
+            for i, t in enumerate(["O preco e 100", "A multa e 10%", "O prazo e 30 dias"], start=1)]
+    indice = IndiceFaiss(docs, EmbeddingsPorPalavra())
+    assert indice.similarity_search("qual o prazo?", k=1)[0].metadata["pagina"] == 3
+    assert len(indice.similarity_search("x", k=10)) == 3

@@ -18,7 +18,7 @@ flowchart LR
 ```
 
 1. **Leitura**: o texto é extraído página por página (`pypdf`), guardando o nome do arquivo e o número da página.
-2. **Indexação**: as páginas são divididas em trechos com sobreposição (`RecursiveCharacterTextSplitter`), transformadas em vetores com o `gemini-embedding-001` e guardadas num índice FAISS em memória.
+2. **Indexação**: as páginas são divididas em trechos com sobreposição (`RecursiveCharacterTextSplitter`), transformadas em vetores com o `gemini-embedding-001` e guardadas num índice FAISS em memória (similaridade de cosseno).
 3. **Busca**: a pergunta vira um vetor e o FAISS devolve os 4 trechos mais parecidos.
 4. **Resposta**: o Gemini recebe só esses trechos e as últimas mensagens da conversa (para perguntas de acompanhamento), e é instruído a citar `[arquivo, p. N]` e a admitir quando não encontra a resposta.
 

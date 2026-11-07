@@ -6,7 +6,8 @@ import hashlib
 import os
 from dataclasses import dataclass
 
-from langchain_community.vectorstores import FAISS
+import faiss
+import numpy as np
 from langchain_core.documents import Document
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -37,7 +38,16 @@ def modelos_padrao():
     """Modelo de chat e de embeddings do Gemini (plano gratuito). A chave vem de GEMINI_API_KEY."""
     from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 
-    return ChatGoogleGenerativeAI(model=MODELO_CHAT), GoogleGenerativeAIEmbeddings(model=MODELO_EMBEDDINGS)
+    llm = ChatGoogleGenerativeAI(model=MODELO_CHAT, thinking_config={"thinking_level": "low"},
+                                 max_retries=2, timeout=90)
+    return llm, GoogleGenerativeAIEmbeddings(model=MODELO_EMBEDDINGS)
+
+
+def mensagem_de_erro(erro: Exception) -> str:
+    texto = str(erro)
+    if "429" in texto or "RESOURCE_EXHAUSTED" in texto:
+        return "O limite gratuito do Gemini foi atingido. Espere um minuto e tente de novo."
+    return f"Não consegui falar com o Gemini ({type(erro).__name__}). Confira a GEMINI_API_KEY no .env."
 
 
 def ler_pdf(arquivo, nome: str) -> list[Document]:
@@ -50,11 +60,31 @@ def ler_pdf(arquivo, nome: str) -> list[Document]:
     return paginas
 
 
-def criar_indice(paginas: list[Document], embeddings) -> FAISS:
+class IndiceFaiss:
+    """Índice vetorial FAISS em memória: similaridade de cosseno (produto interno de vetores normalizados)."""
+
+    def __init__(self, trechos: list[Document], embeddings):
+        self.trechos, self.embeddings = trechos, embeddings
+        vetores = self._normalizar(embeddings.embed_documents([t.page_content for t in trechos]))
+        self.indice = faiss.IndexFlatIP(vetores.shape[1])
+        self.indice.add(vetores)
+
+    @staticmethod
+    def _normalizar(vetores) -> np.ndarray:
+        v = np.asarray(vetores, dtype="float32")
+        return v / np.clip(np.linalg.norm(v, axis=1, keepdims=True), 1e-12, None)
+
+    def similarity_search(self, pergunta: str, k: int = 4) -> list[Document]:
+        consulta = self._normalizar([self.embeddings.embed_query(pergunta)])
+        _, posicoes = self.indice.search(consulta, min(k, len(self.trechos)))
+        return [self.trechos[i] for i in posicoes[0] if i >= 0]
+
+
+def criar_indice(paginas: list[Document], embeddings) -> IndiceFaiss:
     if not paginas:
         raise ValueError("Nenhum texto encontrado. O PDF pode ser escaneado (imagem); este app não faz OCR.")
     divisor = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
-    return FAISS.from_documents(divisor.split_documents(paginas), embeddings)
+    return IndiceFaiss(divisor.split_documents(paginas), embeddings)
 
 
 def impressao_digital(arquivos: list[tuple[str, bytes]]) -> str:
@@ -70,7 +100,7 @@ def _formatar(trechos: list[Document]) -> str:
     return "\n\n".join(f"[{d.metadata['arquivo']}, p. {d.metadata['pagina']}]\n{d.page_content}" for d in trechos)
 
 
-def responder(pergunta: str, indice: FAISS, llm, historico: list[tuple[str, str]] | None = None) -> Resposta:
+def responder(pergunta: str, indice: IndiceFaiss, llm, historico: list[tuple[str, str]] | None = None) -> Resposta:
     """Busca os trechos mais parecidos e pede ao LLM uma resposta citando as páginas.
 
     `historico` são as últimas trocas (papel, texto), para perguntas de acompanhamento.

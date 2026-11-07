@@ -1,6 +1,6 @@
 streamlit>=1.46
 langchain-core>=0.3
-langchain-community>=0.3
+numpy>=1.26
 langchain-text-splitters>=0.3
 langchain-google-genai>=2.1
 faiss-cpu>=1.8

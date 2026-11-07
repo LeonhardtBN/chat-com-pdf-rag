@@ -6,7 +6,7 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 
-from utils import criar_indice, impressao_digital, ler_pdf, modelos_padrao, responder
+from utils import criar_indice, impressao_digital, ler_pdf, mensagem_de_erro, modelos_padrao, responder
 
 load_dotenv()
 st.set_page_config(page_title="Converse com seus PDFs", page_icon=":books:")
@@ -47,6 +47,9 @@ if st.session_state.get("chave_indice") != chave:
         except ValueError as e:
             st.error(str(e))
             st.stop()
+        except Exception as e:  # erro da API de embeddings
+            st.error(mensagem_de_erro(e))
+            st.stop()
     st.session_state.chave_indice = chave
     st.session_state.mensagens = []
     st.sidebar.success(f"{len(paginas)} páginas indexadas.")
@@ -62,7 +65,11 @@ if pergunta := st.chat_input("Faça sua pergunta sobre os documentos"):
     historico = [("human" if m["papel"] == "user" else "ai", m["texto"]) for m in st.session_state.mensagens]
     with st.chat_message("assistant"):
         with st.spinner("Procurando nos documentos..."):
-            resposta = responder(pergunta, st.session_state.indice, llm, historico)
+            try:
+                resposta = responder(pergunta, st.session_state.indice, llm, historico)
+            except Exception as e:
+                st.error(mensagem_de_erro(e))
+                st.stop()
         st.markdown(resposta.texto)
         with st.expander("Trechos usados"):
             for d in resposta.fontes:
